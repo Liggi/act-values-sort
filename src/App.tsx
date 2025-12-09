@@ -78,25 +78,56 @@ function initScores(): Scores {
   return scores;
 }
 
-// Swiss-style: pair values with similar scores that haven't faced each other
-function getNextPair(scores: Scores): [Value, Value] | null {
-  const ranked = [...VALUES].sort((a, b) => {
-    const aScore = scores[a.id].wins - scores[a.id].losses;
-    const bScore = scores[b.id].wins - scores[b.id].losses;
-    return bScore - aScore;
-  });
-
-  // Find first valid pair (similar rank, haven't competed)
-  for (let i = 0; i < ranked.length; i++) {
-    for (let j = i + 1; j < ranked.length; j++) {
-      const a = ranked[i];
-      const b = ranked[j];
+// Get next pair, preferring to vary both cards and balance comparison counts
+function getNextPair(scores: Scores, lastPair: [Value, Value] | null): [Value, Value] | null {
+  // Build list of all valid pairs (haven't competed yet)
+  const validPairs: [Value, Value][] = [];
+  for (let i = 0; i < VALUES.length; i++) {
+    for (let j = i + 1; j < VALUES.length; j++) {
+      const a = VALUES[i];
+      const b = VALUES[j];
       if (!scores[a.id].comparisons.has(b.id)) {
-        return [a, b];
+        validPairs.push([a, b]);
       }
     }
   }
-  return null;
+
+  if (validPairs.length === 0) return null;
+
+  // Score each pair: prefer pairs where neither value was in the last pair,
+  // and prefer values that have been compared less often
+  const scoredPairs = validPairs.map((pair) => {
+    let score = 0;
+    const [a, b] = pair;
+
+    // Strongly prefer pairs that don't repeat either value from last comparison
+    if (lastPair) {
+      const lastIds = new Set([lastPair[0].id, lastPair[1].id]);
+      if (!lastIds.has(a.id) && !lastIds.has(b.id)) {
+        score += 100; // Big bonus for completely fresh pair
+      } else if (!lastIds.has(a.id) || !lastIds.has(b.id)) {
+        score += 30; // Smaller bonus for at least one fresh value
+      }
+    } else {
+      score += 100; // First comparison, no penalty
+    }
+
+    // Prefer values with fewer comparisons (balances exposure)
+    const aComparisons = scores[a.id].comparisons.size;
+    const bComparisons = scores[b.id].comparisons.size;
+    score -= (aComparisons + bComparisons) * 2;
+
+    // Slight preference for similar win/loss records (Swiss-style)
+    const aNetScore = scores[a.id].wins - scores[a.id].losses;
+    const bNetScore = scores[b.id].wins - scores[b.id].losses;
+    score -= Math.abs(aNetScore - bNetScore) * 3;
+
+    return { pair, score };
+  });
+
+  // Sort by score (highest first) and pick the best
+  scoredPairs.sort((a, b) => b.score - a.score);
+  return scoredPairs[0].pair;
 }
 
 function getRankedValues(scores: Scores): Value[] {
@@ -121,7 +152,7 @@ function App() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const startSorting = () => {
-    const pair = getNextPair(scores);
+    const pair = getNextPair(scores, null);
     setCurrentPair(pair);
     setPhase("sorting");
   };
@@ -143,7 +174,8 @@ function App() {
     const newCount = comparisonCount + 1;
     setComparisonCount(newCount);
 
-    const nextPair = getNextPair(newScores);
+    const justCompared: [Value, Value] = [winner, loser];
+    const nextPair = getNextPair(newScores, justCompared);
 
     // End if we've done enough comparisons or exhausted all pairs
     if (!nextPair || newCount >= MIN_COMPARISONS) {
@@ -185,7 +217,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="max-w-3xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">
@@ -270,20 +302,22 @@ function App() {
               Which matters more to you right now?
             </div>
 
-            {/* Choice cards */}
-            <div className="space-y-4">
+            {/* Choice cards - side by side */}
+            <div className="grid grid-cols-2 gap-4">
               {currentPair.map((value, i) => (
                 <button
                   key={value.id}
                   onClick={() =>
                     handleChoice(value, currentPair[i === 0 ? 1 : 0])
                   }
-                  className="w-full p-6 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-600 hover:border-amber-500/50 rounded-2xl text-left transition-all transform hover:scale-[1.02] active:scale-[0.98] group"
+                  className="p-6 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-600 hover:border-amber-500/50 rounded-2xl text-left transition-all transform hover:scale-[1.02] active:scale-[0.98] group flex flex-col h-full"
                 >
                   <div className="text-xl font-semibold text-white group-hover:text-amber-300 transition-colors">
                     {value.name}
                   </div>
-                  <div className="text-slate-400 mt-1">{value.description}</div>
+                  <div className="text-slate-400 mt-2 text-sm leading-relaxed flex-1">
+                    {value.description}
+                  </div>
                 </button>
               ))}
             </div>
