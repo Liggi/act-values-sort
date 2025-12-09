@@ -5,63 +5,79 @@ const VALUES = [
   {
     id: "connection",
     name: "Connection",
-    description: "Building and nurturing close relationships with others",
+    description: "To engage fully in whatever I am doing, and be fully present with others",
   },
   {
     id: "growth",
     name: "Growth",
-    description: "Continuously learning and developing as a person",
+    description: "To keep learning, developing, and expanding my capabilities",
   },
   {
     id: "health",
     name: "Health",
-    description: "Taking care of your physical and mental wellbeing",
+    description: "To take care of my physical and mental wellbeing",
   },
   {
     id: "creativity",
     name: "Creativity",
-    description: "Expressing yourself and bringing new ideas to life",
+    description: "To express myself and bring new ideas to life",
   },
   {
     id: "adventure",
     name: "Adventure",
-    description: "Seeking new experiences and embracing the unknown",
+    description: "To seek new experiences and embrace the unknown",
   },
   {
     id: "compassion",
     name: "Compassion",
-    description: "Showing kindness and care for yourself and others",
+    description: "To show kindness and care for myself and others",
   },
   {
     id: "achievement",
     name: "Achievement",
-    description: "Setting goals and working hard to accomplish them",
+    description: "To set meaningful goals and work hard to accomplish them",
   },
   {
     id: "authenticity",
     name: "Authenticity",
-    description: "Being true to yourself and living with integrity",
+    description: "To be true to myself and live with integrity",
   },
   {
     id: "contribution",
     name: "Contribution",
-    description: "Making a positive difference in the world around you",
+    description: "To make a positive difference in the world around me",
   },
   {
     id: "freedom",
     name: "Freedom",
-    description: "Having autonomy and independence in your choices",
+    description: "To have autonomy and independence in my choices",
   },
   {
     id: "security",
     name: "Security",
-    description: "Creating stability and safety in your life",
+    description: "To create stability and safety in my life",
   },
   {
     id: "fun",
     name: "Fun",
-    description: "Enjoying life and making time for play and pleasure",
+    description: "To enjoy life and make time for play and pleasure",
   },
+];
+
+// Card gradient colors (sunset palette)
+const GRADIENTS = [
+  "from-rose-400 via-pink-400 to-orange-300",
+  "from-violet-400 via-purple-400 to-pink-300",
+  "from-amber-300 via-orange-400 to-rose-400",
+  "from-teal-400 via-cyan-400 to-blue-300",
+  "from-emerald-400 via-teal-400 to-cyan-300",
+  "from-fuchsia-400 via-pink-400 to-rose-300",
+  "from-sky-400 via-blue-400 to-indigo-300",
+  "from-lime-400 via-emerald-400 to-teal-300",
+  "from-orange-400 via-amber-400 to-yellow-300",
+  "from-indigo-400 via-violet-400 to-purple-300",
+  "from-pink-400 via-rose-400 to-red-300",
+  "from-cyan-400 via-sky-400 to-blue-300",
 ];
 
 type Value = (typeof VALUES)[number];
@@ -80,7 +96,6 @@ function initScores(): Scores {
 
 // Get next pair, preferring to vary both cards and balance comparison counts
 function getNextPair(scores: Scores, lastPair: [Value, Value] | null): [Value, Value] | null {
-  // Build list of all valid pairs (haven't competed yet)
   const validPairs: [Value, Value][] = [];
   for (let i = 0; i < VALUES.length; i++) {
     for (let j = i + 1; j < VALUES.length; j++) {
@@ -94,30 +109,25 @@ function getNextPair(scores: Scores, lastPair: [Value, Value] | null): [Value, V
 
   if (validPairs.length === 0) return null;
 
-  // Score each pair: prefer pairs where neither value was in the last pair,
-  // and prefer values that have been compared less often
   const scoredPairs = validPairs.map((pair) => {
     let score = 0;
     const [a, b] = pair;
 
-    // Strongly prefer pairs that don't repeat either value from last comparison
     if (lastPair) {
       const lastIds = new Set([lastPair[0].id, lastPair[1].id]);
       if (!lastIds.has(a.id) && !lastIds.has(b.id)) {
-        score += 100; // Big bonus for completely fresh pair
+        score += 100;
       } else if (!lastIds.has(a.id) || !lastIds.has(b.id)) {
-        score += 30; // Smaller bonus for at least one fresh value
+        score += 30;
       }
     } else {
-      score += 100; // First comparison, no penalty
+      score += 100;
     }
 
-    // Prefer values with fewer comparisons (balances exposure)
     const aComparisons = scores[a.id].comparisons.size;
     const bComparisons = scores[b.id].comparisons.size;
     score -= (aComparisons + bComparisons) * 2;
 
-    // Slight preference for similar win/loss records (Swiss-style)
     const aNetScore = scores[a.id].wins - scores[a.id].losses;
     const bNetScore = scores[b.id].wins - scores[b.id].losses;
     score -= Math.abs(aNetScore - bNetScore) * 3;
@@ -125,7 +135,6 @@ function getNextPair(scores: Scores, lastPair: [Value, Value] | null): [Value, V
     return { pair, score };
   });
 
-  // Sort by score (highest first) and pick the best
   scoredPairs.sort((a, b) => b.score - a.score);
   return scoredPairs[0].pair;
 }
@@ -135,12 +144,15 @@ function getRankedValues(scores: Scores): Value[] {
     const aScore = scores[a.id].wins - scores[a.id].losses;
     const bScore = scores[b.id].wins - scores[b.id].losses;
     if (bScore !== aScore) return bScore - aScore;
-    // Tiebreaker: more wins
     return scores[b.id].wins - scores[a.id].wins;
   });
 }
 
-// Minimum comparisons before we can show results (Swiss typically needs ~3-4 rounds)
+function getGradient(valueId: string): string {
+  const index = VALUES.findIndex((v) => v.id === valueId);
+  return GRADIENTS[index % GRADIENTS.length];
+}
+
 const MIN_COMPARISONS = 20;
 
 function App() {
@@ -177,7 +189,6 @@ function App() {
     const justCompared: [Value, Value] = [winner, loser];
     const nextPair = getNextPair(newScores, justCompared);
 
-    // End if we've done enough comparisons or exhausted all pairs
     if (!nextPair || newCount >= MIN_COMPARISONS) {
       setFinalRanking(getRankedValues(newScores));
       setPhase("results");
@@ -213,122 +224,99 @@ function App() {
     setFinalRanking([]);
   };
 
-  const progress = Math.min(100, (comparisonCount / MIN_COMPARISONS) * 100);
+  const remaining = MIN_COMPARISONS - comparisonCount;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      <div className="max-w-3xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-amber-200 to-amber-400 bg-clip-text text-transparent">
-            Values Sort
-          </h1>
-          <p className="text-slate-400">Discover what matters most to you</p>
-        </div>
-
+    <div className="min-h-screen bg-[#FDF8F3] text-slate-800">
+      <div className="max-w-lg mx-auto px-4 py-8 min-h-screen flex flex-col">
         {/* Intro Phase */}
         {phase === "intro" && (
-          <div className="space-y-8">
-            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-              <h2 className="text-xl font-semibold mb-4 text-amber-300">How it works</h2>
-              <ol className="space-y-3 text-slate-300">
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-sm flex items-center justify-center">
-                    1
-                  </span>
-                  <span>You'll see two values at a time</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-sm flex items-center justify-center">
-                    2
-                  </span>
-                  <span>Choose which one feels more important to you right now</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-sm flex items-center justify-center">
-                    3
-                  </span>
-                  <span>There are no wrong answers — trust your gut</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-sm flex items-center justify-center">
-                    4
-                  </span>
-                  <span>At the end, you'll see your personal values ranking</span>
-                </li>
-              </ol>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700">
-              <h2 className="text-xl font-semibold mb-4 text-amber-300">The values</h2>
-              <div className="grid grid-cols-2 gap-2">
-                {VALUES.map((v) => (
-                  <div key={v.id} className="text-sm text-slate-400 py-1">
-                    • {v.name}
-                  </div>
-                ))}
+          <div className="flex-1 flex flex-col">
+            {/* Hero image placeholder */}
+            <div className="relative rounded-2xl overflow-hidden mb-6 aspect-[4/3] bg-gradient-to-br from-rose-300 via-orange-200 to-amber-200">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-32 h-32 border-4 border-slate-800/20 rounded-3xl rotate-12" />
               </div>
+              <button className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/80 flex items-center justify-center">
+                <span className="text-slate-600">←</span>
+              </button>
             </div>
 
-            <button
-              onClick={startSorting}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 rounded-xl font-semibold text-slate-900 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              Start Sorting
-            </button>
+            <div className="flex items-center gap-2 text-sm text-slate-500 mb-2">
+              <span>⏱ 2 min</span>
+              <span>•</span>
+              <span>Activity</span>
+            </div>
+
+            <h1 className="text-3xl font-bold text-slate-900 mb-3">Values Sorting</h1>
+
+            <p className="text-slate-600 leading-relaxed mb-8">
+              Understanding your core values can transform how you make decisions.
+              By identifying what truly matters to you, you can align your actions
+              with your authentic self. Let's discover your top values together.
+            </p>
+
+            <div className="mt-auto">
+              <button
+                onClick={startSorting}
+                className="w-full py-4 bg-violet-600 hover:bg-violet-700 rounded-xl font-semibold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Begin
+              </button>
+            </div>
           </div>
         )}
 
         {/* Sorting Phase */}
         {phase === "sorting" && currentPair && (
-          <div className="space-y-8">
-            {/* Progress bar */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-slate-400">
-                <span>Progress</span>
-                <span>
-                  {comparisonCount} / {MIN_COMPARISONS}
-                </span>
-              </div>
-              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
+          <div className="flex-1 flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <button
+                onClick={() => setPhase("intro")}
+                className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center"
+              >
+                <span className="text-slate-600">←</span>
+              </button>
+              <div className="flex items-center gap-2 text-slate-500">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <span className="font-medium">{remaining} left</span>
               </div>
             </div>
 
-            <div className="text-center text-slate-300 text-lg">
-              Which matters more to you right now?
+            <div className="text-center text-slate-600 mb-6">
+              Which matters more to you?
             </div>
 
-            {/* Choice cards - side by side */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Card stack area */}
+            <div className="flex-1 flex items-center justify-center gap-4 mb-8">
               {currentPair.map((value, i) => (
                 <button
                   key={value.id}
-                  onClick={() =>
-                    handleChoice(value, currentPair[i === 0 ? 1 : 0])
-                  }
-                  className="p-6 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-600 hover:border-amber-500/50 rounded-2xl text-left transition-all transform hover:scale-[1.02] active:scale-[0.98] group flex flex-col h-full"
+                  onClick={() => handleChoice(value, currentPair[i === 0 ? 1 : 0])}
+                  className={`relative flex-1 max-w-[160px] aspect-[3/4] rounded-3xl bg-gradient-to-b ${getGradient(value.id)} p-4 flex flex-col items-center justify-center text-center shadow-lg hover:shadow-xl transition-all transform hover:scale-105 hover:-translate-y-1 active:scale-95`}
                 >
-                  <div className="text-xl font-semibold text-white group-hover:text-amber-300 transition-colors">
+                  {/* Card content */}
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">
                     {value.name}
-                  </div>
-                  <div className="text-slate-400 mt-2 text-sm leading-relaxed flex-1">
+                  </h3>
+                  <p className="text-sm text-slate-700/80 leading-snug">
                     {value.description}
-                  </div>
+                  </p>
                 </button>
               ))}
             </div>
 
+            {/* Skip link */}
             <div className="text-center">
               <button
                 onClick={() => {
                   setFinalRanking(getRankedValues(scores));
                   setPhase("results");
                 }}
-                className="text-slate-500 hover:text-slate-300 text-sm underline"
+                className="text-slate-400 hover:text-slate-600 text-sm"
               >
                 Skip to results →
               </button>
@@ -338,92 +326,67 @@ function App() {
 
         {/* Results Phase */}
         {phase === "results" && (
-          <div className="space-y-8">
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-semibold text-amber-300">
-                Your Values Ranking
-              </h2>
-              <p className="text-slate-400">
-                Drag to adjust if anything feels off
-              </p>
+          <div className="flex-1 flex flex-col">
+            {/* Hero image */}
+            <div className="relative rounded-2xl overflow-hidden mb-6 aspect-[4/3] bg-gradient-to-br from-violet-300 via-purple-200 to-pink-200">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-32 h-32 border-4 border-slate-800/20 rounded-3xl rotate-12" />
+              </div>
+              <button
+                onClick={restart}
+                className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/80 flex items-center justify-center"
+              >
+                <span className="text-slate-600">←</span>
+              </button>
             </div>
 
-            <div className="space-y-2">
-              {finalRanking.map((value, index) => (
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              Your Top {Math.min(5, finalRanking.length)} Values
+            </h2>
+            <p className="text-slate-500 mb-6">
+              These values emerged as most important to you
+            </p>
+
+            {/* Top values list */}
+            <div className="space-y-4 mb-8">
+              {finalRanking.slice(0, 5).map((value, index) => (
                 <div
                   key={value.id}
                   draggable
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
-                  className={`flex items-center gap-4 p-4 bg-slate-800/80 border rounded-xl cursor-grab active:cursor-grabbing transition-all ${
+                  className={`p-4 rounded-xl bg-white border-2 cursor-grab active:cursor-grabbing transition-all ${
                     draggedIndex === index
-                      ? "border-amber-500 bg-slate-700/80 scale-[1.02]"
-                      : "border-slate-700 hover:border-slate-600"
+                      ? "border-violet-400 shadow-lg scale-[1.02]"
+                      : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      index < 3
-                        ? "bg-amber-500/20 text-amber-400"
-                        : index < 6
-                        ? "bg-slate-600/50 text-slate-300"
-                        : "bg-slate-700/50 text-slate-500"
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">{value.name}</div>
-                    <div className="text-sm text-slate-500">
-                      {value.description}
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${getGradient(value.id)} flex items-center justify-center text-sm font-bold text-white shadow-sm`}>
+                      {index + 1}
                     </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-slate-900">{value.name}</h3>
+                      <p className="text-sm text-slate-500 mt-0.5">{value.description}</p>
+                    </div>
+                    <div className="text-slate-300 cursor-grab">⋮⋮</div>
                   </div>
-                  <div className="text-slate-600">⋮⋮</div>
                 </div>
               ))}
             </div>
 
-            {/* Top 3 summary */}
-            <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-6">
-              <h3 className="font-semibold text-amber-300 mb-3">Your top 3 values</h3>
-              <div className="space-y-2">
-                {finalRanking.slice(0, 3).map((value, i) => (
-                  <div key={value.id} className="flex items-center gap-3">
-                    <span className="text-amber-400">{["🥇", "🥈", "🥉"][i]}</span>
-                    <span className="font-medium">{value.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-4">
+            {/* Actions */}
+            <div className="mt-auto">
               <button
                 onClick={restart}
-                className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-medium transition-colors"
+                className="w-full py-4 bg-violet-600 hover:bg-violet-700 rounded-xl font-semibold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98]"
               >
-                Start Over
-              </button>
-              <button
-                onClick={() => {
-                  const text = finalRanking
-                    .map((v, i) => `${i + 1}. ${v.name}`)
-                    .join("\n");
-                  navigator.clipboard.writeText(text);
-                  alert("Copied to clipboard!");
-                }}
-                className="flex-1 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl font-medium transition-colors"
-              >
-                Copy Results
+                Sort Again
               </button>
             </div>
           </div>
         )}
-
-        {/* Footer */}
-        <div className="mt-16 text-center text-sm text-slate-600">
-          Based on Acceptance and Commitment Therapy (ACT) values work
-        </div>
       </div>
     </div>
   );
